@@ -29,10 +29,48 @@ async function connectDB() {
           email: userData.email,
         });
         if (user) {
-          return res.send(user); 
+          return res.send(user);
         }
         const result = await userCollection.insertOne(userData);
         res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    // sokol user ke pabo
+
+    app.get("/get-all-users", async (req, res) => {
+      try {
+        const users = await userCollection.find({}).toArray(); 
+        res.send(users);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    // user er role ta niye asbe
+
+    app.get("/get-user-role", async (req, res) => {
+      const email = req.query.email;
+
+      try {
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+
+        const user = await userCollection.findOne(
+          { email },
+          { projection: { role: 1 } },
+        );
+
+        if (!user) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.send({ role: user.role });
       } catch (error) {
         console.error(error);
         res.status(500).send({ message: "Server error" });
