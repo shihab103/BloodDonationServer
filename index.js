@@ -19,16 +19,25 @@ async function connectDB() {
     console.log("Connected to MongoDB");
 
     const db = client.db("software");
-    const collection = db.collection("testCollection");
+    const userCollection = db.collection("user");
 
-
-
-
-
-
-
-
-
+    // send user data in DB
+    app.post("/add-user", async (req, res) => {
+      const userData = req.body;
+      try {
+        const user = await userCollection.findOne({
+          email: userData.email,
+        });
+        if (user) {
+          return res.send(user); 
+        }
+        const result = await userCollection.insertOne(userData);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
   } catch (err) {
     console.error("❌ MongoDB connection error:", err);
   }
