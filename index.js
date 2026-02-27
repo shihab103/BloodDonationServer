@@ -20,6 +20,8 @@ async function connectDB() {
 
     const db = client.db("software");
     const userCollection = db.collection("user");
+    const donationRequestCollection = db.collection("donationRequests");
+    
 
     // send user data in DB
     app.post("/add-user", async (req, res) => {
@@ -43,7 +45,7 @@ async function connectDB() {
 
     app.get("/get-all-users", async (req, res) => {
       try {
-        const users = await userCollection.find({}).toArray(); 
+        const users = await userCollection.find({}).toArray();
         res.send(users);
       } catch (error) {
         console.error(error);
@@ -74,6 +76,58 @@ async function connectDB() {
       } catch (error) {
         console.error(error);
         res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    // create donation request
+
+    app.post("/create-donation-request", async (req, res) => {
+      try {
+        const donationData = req.body;
+        const userEmail = donationData.requesterEmail;
+
+        if (!userEmail) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+
+        const user = await userCollection.findOne({ email: userEmail });
+
+        if (!user) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        if (user.status === "blocked") {
+          return res.status(403).send({
+            message: "You are blocked and cannot create donation request",
+          });
+        }
+
+        const donationRequest = {
+          requesterName: user.name,
+          requesterEmail: user.email,
+          recipientName: donationData.recipientName,
+          recipientDistrict: donationData.recipientDistrict,
+          recipientUpazila: donationData.recipientUpazila,
+          hospitalName: donationData.hospitalName,
+          fullAddress: donationData.fullAddress,
+          bloodGroup: donationData.bloodGroup,
+          donationDate: donationData.donationDate,
+          donationTime: donationData.donationTime,
+          requestMessage: donationData.requestMessage,
+          donationStatus: "pending",
+          createdAt: new Date(),
+        };
+
+        const result =
+          await donationRequestCollection.insertOne(donationRequest);
+
+        res.send({
+          insertedId: result.insertedId,
+          message: "Donation request created successfully",
+        });
+      } catch (error) {
+        console.error("Error creating donation request:", error);
+        res.status(500).send({ message: "Internal Server Error" });
       }
     });
   } catch (err) {
