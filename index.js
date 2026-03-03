@@ -130,6 +130,27 @@ async function connectDB() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+    // my donation request
+
+    app.get("/my-donation-requests", async (req, res) => {
+      const email = req.query.email;
+      const requests = await donationRequestCollection
+        .find({ requesterEmail: email })
+        .toArray();
+      res.send(requests);
+    });
+
+
+
+
+
+
+
+
+
+
+
   } catch (err) {
     console.error("❌ MongoDB connection error:", err);
   }
