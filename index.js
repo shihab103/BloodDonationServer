@@ -21,7 +21,6 @@ async function connectDB() {
     const db = client.db("software");
     const userCollection = db.collection("user");
     const donationRequestCollection = db.collection("donationRequests");
-    
 
     // send user data in DB
     app.post("/add-user", async (req, res) => {
@@ -30,9 +29,11 @@ async function connectDB() {
         const user = await userCollection.findOne({
           email: userData.email,
         });
+
         if (user) {
           return res.send(user);
         }
+
         const result = await userCollection.insertOne(userData);
         res.send(result);
       } catch (error) {
@@ -131,6 +132,68 @@ async function connectDB() {
       }
     });
 
+    // profile section
+
+    app.get("/users/:email", async (req, res) => {
+      const user = await userCollection.findOne({ email: req.params.email });
+      res.send(user);
+    });
+
+    app.put("/users/:email", async (req, res) => {
+      const email = req.params.email;
+
+      const updateDoc = {
+        $set: {
+          name: req.body.name,
+          photoURL: req.body.photoURL,
+          bloodGroup: req.body.bloodGroup,
+          district: req.body.district,
+          upazila: req.body.upazila,
+          districtName: req.body.districtName,
+          upazilaName: req.body.upazilaName,
+        },
+      };
+
+      const result = await userCollection.updateOne(
+        { email: email },
+        updateDoc,
+      );
+
+      res.send(result);
+    });
+
+    
+    app.patch("/update-status", async (req, res) => {
+      const { email, status } = req.body;
+      try {
+        const result = await userCollection.updateOne(
+          { email },
+          { $set: { status } },
+        );
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Error updating status" });
+      }
+    });
+
+    
+    app.patch("/update-role", async (req, res) => {
+      const { email, role } = req.body;
+      try {
+        const result = await userCollection.updateOne(
+          { email: email },
+          {
+            $set: { role },
+          },
+        );
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Error updating role" });
+      }
+    });
+
     // my donation request
 
     app.get("/my-donation-requests", async (req, res) => {
@@ -140,17 +203,6 @@ async function connectDB() {
         .toArray();
       res.send(requests);
     });
-
-
-
-
-
-
-
-
-
-
-
   } catch (err) {
     console.error("❌ MongoDB connection error:", err);
   }
