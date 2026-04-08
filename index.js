@@ -1,8 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { MongoClient } = require("mongodb");
-
+const { MongoClient, ObjectId } = require("mongodb"); // এখানে ObjectId যোগ করুন
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -162,7 +161,6 @@ async function connectDB() {
       res.send(result);
     });
 
-    
     app.patch("/update-status", async (req, res) => {
       const { email, status } = req.body;
       try {
@@ -177,7 +175,6 @@ async function connectDB() {
       }
     });
 
-    
     app.patch("/update-role", async (req, res) => {
       const { email, role } = req.body;
       try {
@@ -191,6 +188,77 @@ async function connectDB() {
       } catch (error) {
         console.error(error);
         res.status(500).send({ message: "Error updating role" });
+      }
+    });
+
+    // GET public donation requests
+    app.get("/public-donation-requests", async (req, res) => {
+      try {
+        const result = await donationRequestCollection
+          .find({})
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch requests" });
+      }
+    });
+
+    app.patch("/donation-request/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { donationStatus, donorId, donorName, donorEmail } = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            donationStatus,
+            donorId, // ইউজারের আইডি স্ট্রিং হিসেবেই রাখছি যাতে ফ্রন্টএন্ডে সহজে মিলে
+            donorName,
+            donorEmail,
+          },
+        };
+        const result = await donationRequestCollection.updateOne(
+          filter,
+          updateDoc,
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Update failed" });
+      }
+    });
+    // user er id diye data
+    app.get("/user-by-id/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const user = await userCollection.findOne(query);
+
+        if (!user) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.send(user);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching user" });
+      }
+    });
+
+    //  user donation cencle korte chaile
+    app.patch("/cancel-donation/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: { donationStatus: "pending" },
+          $unset: { donorId: "", donorName: "", donorEmail: "" },
+        };
+        const result = await donationRequestCollection.updateOne(
+          filter,
+          updateDoc,
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Cancel failed" });
       }
     });
 
