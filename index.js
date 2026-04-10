@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ObjectId } = require("mongodb"); // এখানে ObjectId যোগ করুন
+const { MongoClient, ObjectId } = require("mongodb");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -20,6 +20,27 @@ async function connectDB() {
     const db = client.db("software");
     const userCollection = db.collection("user");
     const donationRequestCollection = db.collection("donationRequests");
+    const voluntaryDonorsCollection = db.collection("voluntaryDonors");
+
+    // Add voluntary donor route
+    app.post("/add-voluntary-donor", async (req, res) => {
+      try {
+        const donorData = req.body;
+        const existingDonor = await voluntaryDonorsCollection.findOne({
+          email: donorData.email,
+        });
+        if (existingDonor) {
+          return res
+            .status(400)
+            .send({ message: "You are already a voluntary donor!" });
+        }
+        const result = await voluntaryDonorsCollection.insertOne(donorData);
+        res.send(result);
+      } catch (error) {
+        console.error("Error adding voluntary donor:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
 
     // send user data in DB
     app.post("/add-user", async (req, res) => {
@@ -212,7 +233,7 @@ async function connectDB() {
         const updateDoc = {
           $set: {
             donationStatus,
-            donorId, // ইউজারের আইডি স্ট্রিং হিসেবেই রাখছি যাতে ফ্রন্টএন্ডে সহজে মিলে
+            donorId,
             donorName,
             donorEmail,
           },
@@ -259,6 +280,33 @@ async function connectDB() {
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Cancel failed" });
+      }
+    });
+
+    // Admin status update (Done or Cancel)
+    app.patch("/admin/update-status/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body; // status can be 'done' or 'canceled'
+        const filter = { _id: new ObjectId(id) };
+
+        const updateDoc = {
+          $set: { donationStatus: status },
+        };
+
+        // যদি স্ট্যাটাস ক্যানসেল করা হয়, তবে ডোনারের তথ্য মুছে দিয়ে আবার 'pending' করা যেতে পারে
+        if (status === "canceled") {
+          updateDoc.$set.donationStatus = "pending";
+          updateDoc.$unset = { donorId: "", donorName: "", donorEmail: "" };
+        }
+
+        const result = await donationRequestCollection.updateOne(
+          filter,
+          updateDoc,
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Status update failed" });
       }
     });
 
