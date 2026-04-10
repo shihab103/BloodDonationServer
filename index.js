@@ -42,6 +42,16 @@ async function connectDB() {
       }
     });
 
+    // GET: Fetch all voluntary donors
+    app.get("/voluntary-donors", async (req, res) => {
+      try {
+        const result = await voluntaryDonorsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch donors" });
+      }
+    });
+
     // send user data in DB
     app.post("/add-user", async (req, res) => {
       const userData = req.body;
