@@ -22,6 +22,59 @@ async function connectDB() {
     const donationRequestCollection = db.collection("donationRequests");
     const voluntaryDonorsCollection = db.collection("voluntaryDonors");
 
+    // notification
+    app.patch("/admin/update-status/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body; 
+        const filter = { _id: new ObjectId(id) };
+
+        const donationReq = await db
+          .collection("donationRequests")
+          .findOne(filter);
+
+        if (!donationReq) {
+          return res.status(404).send({ message: "Request not found" });
+        }
+
+        const updateDoc = { $set: { donationStatus: status } };
+        if (status === "canceled") {
+          updateDoc.$set.donationStatus = "pending";
+          updateDoc.$unset = { donorId: "", donorName: "", donorEmail: "" };
+        }
+        await db.collection("donationRequests").updateOne(filter, updateDoc);
+
+        const notification = {
+          recipients: [
+            donationReq.requesterEmail,
+            donationReq.donorEmail,
+          ].filter(Boolean),
+          message: `Your donation request for ${donationReq.recipientName} has been marked as ${status}.`,
+          type: status,
+          timestamp: new Date(),
+          isRead: false,
+        };
+
+        await db.collection("notifications").insertOne(notification);
+
+        res.send({ success: true });
+      } catch (error) {
+        res.status(500).send({ message: "Update and Notification failed" });
+      }
+    });
+
+    app.get("/notifications/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await db
+        .collection("notifications")
+        .find({ recipients: { $in: [email] } })
+        .sort({ timestamp: -1 })
+        .toArray();
+      res.send(result);
+    });
+    
+    // end notification
+
     // Add voluntary donor route
     app.post("/add-voluntary-donor", async (req, res) => {
       try {
@@ -115,6 +168,7 @@ async function connectDB() {
     app.post("/create-donation-request", async (req, res) => {
       try {
         const donationData = req.body;
+        console.log(donationData);
         const userEmail = donationData.requesterEmail;
 
         if (!userEmail) {
@@ -304,7 +358,6 @@ async function connectDB() {
           $set: { donationStatus: status },
         };
 
-        // যদি স্ট্যাটাস ক্যানসেল করা হয়, তবে ডোনারের তথ্য মুছে দিয়ে আবার 'pending' করা যেতে পারে
         if (status === "canceled") {
           updateDoc.$set.donationStatus = "pending";
           updateDoc.$unset = { donorId: "", donorName: "", donorEmail: "" };
