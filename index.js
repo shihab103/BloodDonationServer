@@ -26,7 +26,7 @@ async function connectDB() {
     app.patch("/admin/update-status/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const { status } = req.body; 
+        const { status } = req.body;
         const filter = { _id: new ObjectId(id) };
 
         const donationReq = await db
@@ -72,7 +72,7 @@ async function connectDB() {
         .toArray();
       res.send(result);
     });
-    
+
     // end notification
 
     // Add voluntary donor route
@@ -370,6 +370,24 @@ async function connectDB() {
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Status update failed" });
+      }
+    });
+
+
+    
+    app.delete("/donation-requests/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await donationRequestCollection.deleteOne(query);
+
+        if (result.deletedCount === 1) {
+          res.send({ message: "Deleted successfully", success: true });
+        } else {
+          res.status(404).send({ message: "Request not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Internal Server Error" });
       }
     });
 
